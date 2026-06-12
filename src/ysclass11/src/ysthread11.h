@@ -52,6 +52,14 @@ void YsRunTaskParallelDirect(YsArray <T,N> &taskArray)
 	}
 	else if(0<taskArray.GetN())
 	{
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+		// Single-threaded WebAssembly: run tasks sequentially.
+		for(auto &task : taskArray)
+		{
+			task.StartLocal();
+		}
+		return;
+#endif
 		const auto nTask=taskArray.GetN();
 		YsArray <std::thread,64> threadArray;
 		threadArray.Resize(nTask-1);

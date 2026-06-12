@@ -201,6 +201,12 @@ void YsThreadPool::SubThread::ThreadFunc(void)
 
 YsThreadPool::YsThreadPool(int nThread)
 {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+	// Single-threaded WebAssembly: no worker threads.  Run() executes tasks inline.
+	this->nThread=0;
+	threadArray=nullptr;
+	return;
+#endif
 	this->nThread=nThread;
 	threadArray=new SubThread [nThread];
 
@@ -232,6 +238,9 @@ YsThreadPool::YsThreadPool(int nThread)
 
 YsThreadPool::~YsThreadPool()
 {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+	return;
+#endif
 	for(long long int idx=0; idx<nThread; ++idx)
 	{
 		{
@@ -254,6 +263,13 @@ YsThreadPool::~YsThreadPool()
 
 void YsThreadPool::Run(long long int nTask,const std::function<void()> taskArray[])
 {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+	for(long long int idx=0; idx<nTask; ++idx)
+	{
+		taskArray[idx]();
+	}
+	return;
+#endif
 	if(true==preventRecursiveUse.try_lock())
 	{
 		for(decltype(nThread) idx=0; idx<nThread; ++idx)
