@@ -137,8 +137,8 @@ elseif(APPLE)
 elseif(UNIX)
 	# -Wl,--no-as-needed required for g++ 4.8.4 Confirmed unnecessary with 5.4.0
 	#  http://stackoverflow.com/questions/19463602/compiling-multithread-code-with-g
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--no-as-needed")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 else()
 endif()
 
@@ -186,6 +186,13 @@ if(NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "WindowsStore" AND NOT "${CMAKE_SYSTEM_NA
 		target_link_libraries(ysgl_makeh ysclass)
 		add_executable(ysgl_preproc glsl_src/preproc.cpp)
 		target_link_libraries(ysgl_preproc ysclass)
+
+		if(EMSCRIPTEN)
+			# Build-time code generators must see the real file system under node.
+			foreach(YSGL_TOOL ysgl_makec ysgl_makeh ysgl_preproc)
+				target_link_options(${YSGL_TOOL} PRIVATE -sNODERAWFS=1 -sENVIRONMENT=node)
+			endforeach()
+		endif()
 
 		set_target_properties(ysgl_makec PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${YS_COMMAND_BINARY_DIR}")
 		set_target_properties(ysgl_makeh PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${YS_COMMAND_BINARY_DIR}")
@@ -262,7 +269,7 @@ if(NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "WindowsStore" AND NOT "${CMAKE_SYSTEM_NA
 				DEPENDS ysgl_preproc glsl_src/${GLSL_SOURCE} ${GLSL_EXPANDED_PART}
 				WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/glsl_src
 				COMMAND echo ${YS_COMMAND_BINARY_DIR}/ysgl_preproc ${GLSL_SOURCE} ${GLSL_EXPAND_DIR}/${GLSL_SOURCE}
-				COMMAND ${YS_COMMAND_BINARY_DIR}/ysgl_preproc ${GLSL_SOURCE} ${GLSL_EXPAND_DIR}/${GLSL_SOURCE}
+				COMMAND ysgl_preproc ${GLSL_SOURCE} ${GLSL_EXPAND_DIR}/${GLSL_SOURCE}
 			)
 			set(GLSL_EXPANDED_SOURCE ${GLSL_EXPANDED_SOURCE} "${GLSL_EXPAND_DIR}/${GLSL_SOURCE}")
 		endforeach(GLSL_SOURCE)
@@ -272,7 +279,7 @@ if(NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "WindowsStore" AND NOT "${CMAKE_SYSTEM_NA
 			DEPENDS ysgl_makec ${GLSL_EXPANDED_SOURCE}
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 			COMMAND echo ${YS_COMMAND_BINARY_DIR}/ysgl_makec ${GLSL_EXPANDED_SOURCE}
-			COMMAND ${YS_COMMAND_BINARY_DIR}/ysgl_makec ${GLSL_EXPANDED_SOURCE} > ysglslprogram.c
+			COMMAND ysgl_makec ${GLSL_EXPANDED_SOURCE} > ysglslprogram.c
 		)
 
 
@@ -281,7 +288,7 @@ if(NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "WindowsStore" AND NOT "${CMAKE_SYSTEM_NA
 			DEPENDS ysgl_makeh ${GLSL_EXPANDED_SOURCE}
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 			COMMAND echo ${YS_COMMAND_BINARY_DIR}/ysgl_makeh ${GLSL_EXPANDED_SOURCE}
-			COMMAND ${YS_COMMAND_BINARY_DIR}/ysgl_makeh ${GLSL_EXPANDED_SOURCE} > ysglslprogram.h
+			COMMAND ysgl_makeh ${GLSL_EXPANDED_SOURCE} > ysglslprogram.h
 		)
 
 		add_custom_target(ysglsl_expand_source DEPENDS ${GLSL_EXPANDED_SOURCE})
@@ -413,7 +420,7 @@ foreach(ONE_TARGET ${TARGET_NAME})
 	target_link_libraries(${ONE_TARGET} ${LIB_DEPENDENCY})
 
 	# We suffered enough from the shared stdc++
-	if(UNIX AND NOT APPLE AND NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+	if(UNIX AND NOT APPLE AND NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Android" AND NOT EMSCRIPTEN)
 		target_link_libraries(${ONE_TARGET} pthread -static-libstdc++ -static-libgcc)
 	endif()
 

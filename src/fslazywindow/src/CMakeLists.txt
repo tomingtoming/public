@@ -131,8 +131,8 @@ elseif(APPLE)
 elseif(UNIX)
 	# -Wl,--no-as-needed required for g++ 4.8.4 Confirmed unnecessary with 5.4.0
 	#  http://stackoverflow.com/questions/19463602/compiling-multithread-code-with-g
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--no-as-needed")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 else()
 endif()
 
@@ -158,6 +158,9 @@ elseif(MSVC)
 	set(platform_HEADERS "")
 elseif(APPLE)
 	set(platform_SRCS macosx/fslazywindow.cpp)
+	set(platform_HEADERS "")
+elseif(EMSCRIPTEN)
+	set(platform_SRCS ${YSFLIGHT_WEB_PORT_DIR}/fslazywindow/fslazywindow_emscripten.cpp)
 	set(platform_HEADERS "")
 elseif(UNIX)
 	set(platform_SRCS linux_win/fslazywindow.cpp)
@@ -264,7 +267,7 @@ foreach(ONE_TARGET ${TARGET_NAME})
 	target_link_libraries(${ONE_TARGET} ${LIB_DEPENDENCY})
 
 	# We suffered enough from the shared stdc++
-	if(UNIX AND NOT APPLE AND NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+	if(UNIX AND NOT APPLE AND NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Android" AND NOT EMSCRIPTEN)
 		target_link_libraries(${ONE_TARGET} pthread -static-libstdc++ -static-libgcc)
 	endif()
 

@@ -9,6 +9,8 @@ if(APPLE)
 	set(LIB_DEPENDENCY ${COCOA_LIB} ${OPENGL_LIB})
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
 	set(LIB_DEPENDENCY EGL GLESv2)
+elseif(EMSCRIPTEN)
+	set(LIB_DEPENDENCY)
 elseif(UNIX)
 	set(LIB_DEPENDENCY GL GLU X11)
 else()
@@ -22,6 +24,13 @@ if("${CMAKE_SYSTEM_NAME}" STREQUAL "WindowsStore")
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
 	set(platform_SRCS
 		android/fsandroidwrapper.cpp
+	)
+elseif(EMSCRIPTEN)
+	if(NOT YSFLIGHT_WEB_PORT_DIR)
+		message(FATAL_ERROR "YSFLIGHT_WEB_PORT_DIR must point to the ysflight-web src/port directory.")
+	endif()
+	set(platform_SRCS
+		${YSFLIGHT_WEB_PORT_DIR}/fssimplewindow/fssimplewindow_emscripten.cpp
 	)
 elseif(MSVC)
 	set(platform_SRCS

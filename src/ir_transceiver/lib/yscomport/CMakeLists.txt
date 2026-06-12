@@ -19,6 +19,6 @@ endif()
 add_library(${TARGET_NAME} ${COMPORT_SOURCE})
 target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-if(UNIX AND NOT APPLE AND NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+if(UNIX AND NOT APPLE AND NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Android" AND NOT EMSCRIPTEN)
   target_link_libraries(${TARGET_NAME} pthread)
 endif()

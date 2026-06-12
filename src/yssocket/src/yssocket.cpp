@@ -69,6 +69,15 @@ YsSocketServer::~YsSocketServer()
 
 YSRESULT YsSocketServer::Start(void)
 {
+#ifdef __EMSCRIPTEN__
+	// Browsers cannot accept inbound connections (WebSocket is outbound
+	// only), so hosting from the wasm build can never work.  Fail fast;
+	// hosting requires the native server + WebSocket relay
+	// (see docs/multiplayer.md of ysflight-web).
+	printf("Server mode is not available in the browser.\n");
+	printf("Run the native YSFLIGHT server + WebSocket relay to host.\n");
+	return YSERR;
+#endif
 	if(started!=YSTRUE)
 	{
 		SOCKADDR_IN addr;
