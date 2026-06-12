@@ -50,8 +50,8 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 {
 	glBindTexture(GL_TEXTURE_2D,texPtr->texId);
 
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 
@@ -254,7 +254,9 @@ YSRESULT YsTextureManager::Unit::Bind(int texIdent) const
 		glDisable(GL_TEXTURE_GEN_T);
 	#endif
 
-		glEnable(GL_TEXTURE_2D);
+#ifndef __EMSCRIPTEN__
+		glEnable(GL_TEXTURE_2D);  // Fixed-function relic; invalid in GLES2.
+#endif
 
 		res=YSOK;
 	}

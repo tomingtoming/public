@@ -1022,7 +1022,10 @@ static void YsGLSL3DRendererInitializeUniform(struct YsGLSL3DRenderer *renderer)
 	}
 	if(0<=renderer->uniformTextureSampleCoeff)
 	{
-		glUniform1f(renderer->uniformTextureSampleCoeff,0);
+		// textureSampleCoeff is a vec3; glUniform1f on it is a type mismatch
+		// and strict drivers (WebGL) drop the assignment.
+		const GLfloat zeroCoeff[3]={0,0,0};
+		glUniform3fv(renderer->uniformTextureSampleCoeff,1,zeroCoeff);
 	}
 	if(0<=renderer->uniformUseNegativeOneToPositiveOnTexCoordPos)
 	{
@@ -1054,7 +1057,9 @@ static void YsGLSL3DRendererInitializeUniform(struct YsGLSL3DRenderer *renderer)
 
 	if(0<=renderer->uniformFogEnabledPos)
 	{
-		glUniform1i(renderer->uniformFogEnabledPos,0);
+		// fogEnabled is a float uniform; use glUniform1f (glUniform1i is a
+		// type mismatch that strict drivers reject).
+		glUniform1f(renderer->uniformFogEnabledPos,0.0f);
 	}
 	if(0<=renderer->uniformFogDensityPos)
 	{

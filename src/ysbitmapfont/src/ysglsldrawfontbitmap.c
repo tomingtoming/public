@@ -36,7 +36,7 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ysglheader.h>
 
 
-#if defined(__APPLE__) && (TARGET_OS_EMBEDDED!=0 || TARGET_OS_IPHONE!=0 || TARGET_OS_IPHONE_SIMULATOR!=0)
+#if (defined(__APPLE__) && (TARGET_OS_EMBEDDED!=0 || TARGET_OS_IPHONE!=0 || TARGET_OS_IPHONE_SIMULATOR!=0)) || defined(__EMSCRIPTEN__)
 	#define YS_GLSL_LOWP "lowp "
 	#define YS_GLSL_MIDP "mediump "
 	#define YS_GLSL_HIGHP "highp "
