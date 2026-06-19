@@ -39,6 +39,11 @@ YSRESULT YsTextureManager::Unit::BindFrameBuffer(void) const
 	return YSERR;
 }
 
+void YsTextureManager::Unbind(int texIdent) const
+{
+	// No-op in the null backend: there is no GL texture binding to clear.
+}
+
 
 /* static */ YsTextureManager::ActualTexture *YsTextureManager::Alloc(void)
 {
