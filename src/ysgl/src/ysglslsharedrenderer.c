@@ -254,6 +254,11 @@ YSRESULT YsGLSLDeleteSharedRenderer(void)
 		YsGLSLDelete3DRenderer(ysGLSLVariColorBillBoard3DRenderer);
 		ysGLSLVariColorBillBoard3DRenderer=NULL;
 	}
+	if(NULL!=ysGLSLFlashByPointSprite3DRenderer)
+	{
+		YsGLSLDelete3DRenderer(ysGLSLFlashByPointSprite3DRenderer);
+		ysGLSLFlashByPointSprite3DRenderer=NULL;
+	}
 // 	if(NULL!=ysGLSLMonoColorBillBoard3DRenderer)
 // 	{
 // 		YsGLSLDelete3DRenderer(ysGLSLMonoColorBillBoard3DRenderer);
@@ -338,7 +343,7 @@ YSRESULT YsGLSLDeleteSharedRenderer(void)
 		YsGLSLDelete3DRenderer(ysGLSLVariColorMarkerByPointSprite3DRenderer);
 		ysGLSLVariColorMarkerByPointSprite3DRenderer=NULL;
 	}
-	if(NULL==ysGLSLVariColorPointSprite3DRenderer)
+	if(NULL!=ysGLSLVariColorPointSprite3DRenderer)
 	{
 		YsGLSLDelete3DRenderer(ysGLSLVariColorPointSprite3DRenderer);
 		ysGLSLVariColorPointSprite3DRenderer=NULL;
@@ -566,6 +571,28 @@ YSRESULT YsGLSLSetShared3DRendererProjection(const GLfloat proj[16])
 	{
 		YsGLSLUse3DRenderer(rendererArray[i]);
 		YsGLSLSet3DRendererProjectionfv(rendererArray[i],proj);
+		YsGLSLEndUse3DRenderer(rendererArray[i]);
+	}
+
+	glUseProgram(prevProgramId);
+
+	return YSOK;
+}
+
+YSRESULT YsGLSLSetShared3DRendererProjectionStereo(const GLfloat proj[32])
+{
+	GLuint prevProgramId;
+	struct YsGLSL3DRenderer **rendererArray;
+	int i;
+
+	rendererArray=GetAll3DRenderer();
+
+	glGetIntegerv(GL_CURRENT_PROGRAM,(GLint *)&prevProgramId);
+
+	for(i=0; NULL!=rendererArray[i]; ++i)
+	{
+		YsGLSLUse3DRenderer(rendererArray[i]);
+		YsGLSLSet3DRendererProjectionStereofv(rendererArray[i],proj);
 		YsGLSLEndUse3DRenderer(rendererArray[i]);
 	}
 

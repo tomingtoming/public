@@ -43,6 +43,17 @@ extern "C" {
 #endif
 
 /*! Returns YSOK or YSERR. */
+#ifdef YS_GL_ES2
+/* Multiview (OVR_multiview2) compile mode for the ES3 shader rewrite: 0=off,
+   2=two-view.  Affects programs compiled AFTER the call; the VR runtime sets
+   it before (re)creating renderers that draw into a multiview framebuffer. */
+void YsGLSLSetCompileNumViews(int nViews);
+/* Rewrites a GLSL ES 1.00 source to ES 3.00 when the runtime context is ES3
+   (WebGL2); returns the input unchanged otherwise.  Takes ownership of the
+   malloc'ed input and returns a malloc'ed string. */
+char *YsGLSLES3ConvertSourceIfNeeded(char *linearSource,int isFragmentShader);
+#endif
+
 int YsGLSLCompileAndLinkVertexAndFragmentShader(
     GLuint programId,
     GLuint vertexShaderId,

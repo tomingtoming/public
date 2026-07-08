@@ -89,6 +89,163 @@ static char *MakeLinearString(const int nHeader,const char * const header[],cons
 	return buf;
 }
 
+#ifdef YS_GL_ES2
+/* GLSL ES 1.00 -> 3.00 source rewrite for a WebGL2/GLES3 context.
+
+   The shaders are written in GLSL ES 1.00.  On a WebGL2 context an ES 1.00
+   shader cannot correctly sample a DEPTH_COMPONENT texture (texture2D(...).r
+   returns 0), which silently breaks the shadow map.  ES 3.00's texture() does
+   read depth correctly, so when the runtime context is ES3 the sources are
+   rewritten token-by-token at compile time:
+
+       vertex:   attribute -> in, varying -> out
+       fragment: varying -> in, gl_FragColor -> ysglFragColor (declared in the
+                 injected header)
+       both:     texture2D -> texture
+
+   A textual rewrite (rather than #define shims) is used because 'attribute'
+   and 'varying' remain reserved keywords in ES 3.00 and cannot be macro names.
+   nViews==2 additionally makes the vertex shader OVR_multiview2-ready:
+   'uniform ... mat4 projection;' becomes a two-view array indexed by
+   gl_ViewID_OVR.  (Multiview is all-or-nothing per draw framebuffer.) */
+static int YsGLSLES3RuntimeDetected(void)
+{
+	static int es3=-1;
+	if(0>es3)
+	{
+		const char *ver=(const char *)glGetString(GL_VERSION);
+		es3=(NULL!=ver && NULL!=strstr(ver,"OpenGL ES 3"))?1:0;
+		if(es3)
+		{
+			printf("GLES3 context: rewriting GLSL ES 1.00 shaders to ES 3.00\n");
+		}
+	}
+	return es3;
+}
+
+static int YsGLSLIsIdentChar(char c)
+{
+	return (('a'<=c && c<='z')||('A'<=c && c<='Z')||('0'<=c && c<='9')||'_'==c);
+}
+
+static char *YsGLSLES3RewriteSource(const char *src,int isFragmentShader,int nViews)
+{
+	const size_t srcLen=strlen(src);
+	/* worst-case growth: every 'projection' (10 chars) -> 'projection[gl_ViewID_OVR]' (25 chars) */
+	char *buf=(char *)malloc(srcLen*3+256);
+	size_t out=0,i=0;
+	if(NULL==buf)
+	{
+		return NULL;
+	}
+	while(0!=src[i])
+	{
+		const char c=src[i];
+		if(YsGLSLIsIdentChar(c))
+		{
+			size_t j=i,len;
+			while(YsGLSLIsIdentChar(src[j]))
+			{
+				++j;
+			}
+			len=j-i;
+			if(0==isFragmentShader && 9==len && 0==strncmp(src+i,"attribute",9))
+			{
+				out+=sprintf(buf+out,"in");
+			}
+			else if(7==len && 0==strncmp(src+i,"varying",7))
+			{
+				out+=sprintf(buf+out,(0!=isFragmentShader ? "in" : "out"));
+			}
+			else if(9==len && 0==strncmp(src+i,"texture2D",9))
+			{
+				out+=sprintf(buf+out,"texture");
+			}
+			else if(0!=isFragmentShader && 12==len && 0==strncmp(src+i,"gl_FragColor",12))
+			{
+				out+=sprintf(buf+out,"ysglFragColor");
+			}
+			else if(2==nViews && 0==isFragmentShader && 10==len && 0==strncmp(src+i,"projection",10))
+			{
+				/* declaration 'uniform ... mat4 projection;' -> array of 2;
+				   any use 'projection*...' -> indexed by the multiview view id */
+				size_t k=j;
+				while(' '==src[k] || '\t'==src[k])
+				{
+					++k;
+				}
+				if(';'==src[k])
+				{
+					out+=sprintf(buf+out,"projection[2]");
+				}
+				else
+				{
+					out+=sprintf(buf+out,"projection[gl_ViewID_OVR]");
+				}
+			}
+			else
+			{
+				memcpy(buf+out,src+i,len);
+				out+=len;
+			}
+			i=j;
+		}
+		else
+		{
+			buf[out]=c;
+			++out;
+			++i;
+		}
+	}
+	buf[out]=0;
+	return buf;
+}
+
+static char *YsGLSLES3PrependHeader(char *body,int isFragmentShader,int nViews)
+{
+	const char *version="#version 300 es\n";
+	const char *multiview=(2==nViews && 0==isFragmentShader ?
+	    "#extension GL_OVR_multiview2 : require\nlayout(num_views=2) in;\n" : "");
+	const char *fragOut=(0!=isFragmentShader ? "out mediump vec4 ysglFragColor;\n" : "");
+	char *full=(char *)malloc(strlen(version)+strlen(multiview)+strlen(fragOut)+strlen(body)+1);
+	if(NULL==full)
+	{
+		free(body);
+		return NULL;
+	}
+	strcpy(full,version);
+	strcat(full,multiview);
+	strcat(full,fragOut);
+	strcat(full,body);
+	free(body);
+	return full;
+}
+
+/* Global multiview mode for subsequently-compiled programs (0 or 2 views).
+   Set by the VR runtime before (re)creating renderers whose draw target is a
+   multiview framebuffer. */
+static int YsGLSLCompileNumViews=0;
+
+void YsGLSLSetCompileNumViews(int nViews)
+{
+	YsGLSLCompileNumViews=(2==nViews ? 2 : 0);
+}
+
+char *YsGLSLES3ConvertSourceIfNeeded(char *linearSource,int isFragmentShader)
+{
+	if(0!=YsGLSLES3RuntimeDetected())
+	{
+		char *rewritten=YsGLSLES3RewriteSource(linearSource,isFragmentShader,YsGLSLCompileNumViews);
+		if(NULL!=rewritten)
+		{
+			free(linearSource);
+			return YsGLSLES3PrependHeader(rewritten,isFragmentShader,YsGLSLCompileNumViews);
+		}
+	}
+	return linearSource;
+}
+#endif
+
 int YsGLSLCompileAndLinkVertexAndFragmentShader(
     GLuint programId,
     GLuint vertexShaderId,
@@ -104,6 +261,10 @@ int YsGLSLCompileAndLinkVertexAndFragmentShader(
 
 	char *vertexShaderProgramLinear=MakeLinearString(nYSGLSL_header,YSGLSL_header,nVertexShaderProgLine,vertexShaderProg);
 	char *fragmentShaderProgramLinear=MakeLinearString(nYSGLSL_header,YSGLSL_header,nFragShaderProgLine,fragShaderProg);
+#ifdef YS_GL_ES2
+	vertexShaderProgramLinear=YsGLSLES3ConvertSourceIfNeeded(vertexShaderProgramLinear,0);
+	fragmentShaderProgramLinear=YsGLSLES3ConvertSourceIfNeeded(fragmentShaderProgramLinear,1);
+#endif
 	
 	/* The following two function call is supposed to be allowed by the OpenGL specification.
 	   However, the OpenGL driver of VirtualBox 4.3.20 Linux Guest is bugged, and it only reads the 
@@ -143,6 +304,7 @@ int YsGLSLCompileAndLinkVertexAndFragmentShader(
 		{
 			printf("%3d: %s",i+nYSGLSL_header,vertexShaderProg[i]);
 		}
+		printf("Compiled source:\n%s\n",vertexShaderProgramLinear);
 		printf("\n");
 		succeed=YSERR;
 	}
@@ -167,6 +329,7 @@ int YsGLSLCompileAndLinkVertexAndFragmentShader(
 		{
 			printf("%3d: %s",i+nYSGLSL_header+1,fragShaderProg[i]);
 		}
+		printf("Compiled source:\n%s\n",fragmentShaderProgramLinear);
 		printf("\n");
 		succeed=YSERR;
 	}

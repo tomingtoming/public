@@ -131,7 +131,7 @@ static void YsGLSLBitmapRendererCreateProgram(struct YsGLSLBitmapRenderer *rende
 	renderer->modelViewPos=glGetUniformLocation(renderer->programId,"modelView");
 	renderer->viewportWidthPos=glGetUniformLocation(renderer->programId,"viewportWid");
 	renderer->viewportHeightPos=glGetUniformLocation(renderer->programId,"viewportHei");
-	renderer->texturePos=glGetUniformLocation(renderer->programId,"texture");
+	renderer->texturePos=glGetUniformLocation(renderer->programId,"bmpTexture");
 	renderer->transformationTypePos=glGetUniformLocation(renderer->programId,"transformationType");
 	renderer->viewportOriginPos=glGetUniformLocation(renderer->programId,"viewportOrigin");
 	renderer->alphaCutOffPos=glGetUniformLocation(renderer->programId,"alphaCutOff");

@@ -29,6 +29,7 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "ystexturemanager_gl.h"
 #include <ysglheader.h>
+#include <string.h>
 
 
 /* static */ YsTextureManager::ActualTexture *YsTextureManager::Alloc(void)
@@ -102,12 +103,34 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	glBindTexture(GL_TEXTURE_2D,texPtr->texId);
 #if (!defined(GL_ES) || GL_ES==0) && !defined(GL_ES_VERSION_2_0)
     glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT32,wid,hei,0,GL_DEPTH_COMPONENT,GL_FLOAT,nullptr);
+#elif defined(__EMSCRIPTEN__)
+    // WebGL2 rejects the unsized GL_DEPTH_COMPONENT internalformat that WebGL1
+    // (WEBGL_depth_texture) accepted, and WebGL1 conversely rejects the sized
+    // GL_DEPTH_COMPONENT24.  The context version is a runtime property here
+    // (WebGL1 fallback on SwiftShader), so pick by the actual context.  The
+    // value is defined inline because the build uses the GL ES 2.0 headers.
+    #ifndef GL_DEPTH_COMPONENT24
+    #define GL_DEPTH_COMPONENT24 0x81A6
+    #endif
+    {
+        const char *ver=(const char *)glGetString(GL_VERSION);
+        const GLenum internalFormat=(NULL!=ver && NULL!=strstr(ver,"OpenGL ES 3") ? GL_DEPTH_COMPONENT24 : GL_DEPTH_COMPONENT);
+        glTexImage2D(GL_TEXTURE_2D,0,internalFormat,wid,hei,0,GL_DEPTH_COMPONENT,GL_UNSIGNED_INT,nullptr);
+    }
 #else
     glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT,wid,hei,0,GL_DEPTH_COMPONENT,GL_UNSIGNED_INT,nullptr); // ES needs to use GL_UNSIGNED_INT
 #endif
 
+#ifdef __EMSCRIPTEN__
+	// GLES3/WebGL2: a DEPTH_COMPONENT texture is not filterable; sampling it
+	// with LINEAR through a plain sampler2D yields undefined results (0 on
+	// ANGLE).  NEAREST is required for the ES 3.00 texture() depth read.
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+#else
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+#endif
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
 
@@ -232,20 +255,30 @@ YSRESULT YsTextureManager::Unit::Bind(int texIdent) const
 		glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
 	#endif
 
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-
-		GLint filterType;
-		if(FILTERTYPE_LINEAR==GetFilterType())
+		if(FOM_RAW_Z==GetFileType())
 		{
-			filterType=GL_LINEAR;
+			// A depth render target keeps its creation-time sampler state
+			// (CLAMP_TO_EDGE, and NEAREST on GLES3/WebGL2 where a depth
+			// texture is not filterable: LINEAR would make it incomplete and
+			// sample as 0, turning the whole scene into shadow).
 		}
 		else
 		{
-			filterType=GL_NEAREST;
+			GLint filterType;
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+
+			if(FILTERTYPE_LINEAR==GetFilterType())
+			{
+				filterType=GL_LINEAR;
+			}
+			else
+			{
+				filterType=GL_NEAREST;
+			}
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,filterType);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,filterType);
 		}
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,filterType);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,filterType);
 
 	#ifdef GL_TEXTURE_GEN_S
 		glDisable(GL_TEXTURE_GEN_S);

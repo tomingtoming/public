@@ -1,7 +1,5 @@
 #include "YS_GLSL_HEADER.glsl"
 
-uniform  HIGHP  mat4  projection;
-uniform  HIGHP  mat4  modelView;
 
 uniform LOWP int markerType;
 uniform MIDP float dimension;

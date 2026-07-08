@@ -58,6 +58,7 @@ void YsGLSLSet3DRendererProjectionfv(struct YsGLSL3DRenderer *renderer,const GLf
 /*! This function sets the projection matrix to the 3D renderer program. 
     The 3D rendere program must be current.  Use YsGLSLUse3DRenderer to make it current.  
 */
+void YsGLSLSet3DRendererProjectionStereofv(struct YsGLSL3DRenderer *renderer,const GLfloat mat[32]);
 void YsGLSLSet3DRendererProjectiondv(struct YsGLSL3DRenderer *renderer,const double mat[16]);
 
 /*! This function gets the projection matrix from the 3D renderer program. 

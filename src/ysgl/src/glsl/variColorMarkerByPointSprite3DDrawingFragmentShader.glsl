@@ -46,8 +46,6 @@
 #endif
 
 
-uniform  HIGHP  mat4  projection;
-uniform  HIGHP  mat4  modelView;
 
 uniform LOWP int markerType;
 uniform MIDP float dimension;
