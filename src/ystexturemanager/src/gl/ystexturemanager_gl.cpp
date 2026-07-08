@@ -29,6 +29,7 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "ystexturemanager_gl.h"
 #include <ysglheader.h>
+#include <string.h>
 
 
 /* static */ YsTextureManager::ActualTexture *YsTextureManager::Alloc(void)
@@ -104,12 +105,18 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT32,wid,hei,0,GL_DEPTH_COMPONENT,GL_FLOAT,nullptr);
 #elif defined(__EMSCRIPTEN__)
     // WebGL2 rejects the unsized GL_DEPTH_COMPONENT internalformat that WebGL1
-    // (WEBGL_depth_texture) accepted; a sized format is required.  The value is
-    // defined here because the build still uses the GL ES 2.0 headers.
+    // (WEBGL_depth_texture) accepted, and WebGL1 conversely rejects the sized
+    // GL_DEPTH_COMPONENT24.  The context version is a runtime property here
+    // (WebGL1 fallback on SwiftShader), so pick by the actual context.  The
+    // value is defined inline because the build uses the GL ES 2.0 headers.
     #ifndef GL_DEPTH_COMPONENT24
     #define GL_DEPTH_COMPONENT24 0x81A6
     #endif
-    glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT24,wid,hei,0,GL_DEPTH_COMPONENT,GL_UNSIGNED_INT,nullptr);
+    {
+        const char *ver=(const char *)glGetString(GL_VERSION);
+        const GLenum internalFormat=(NULL!=ver && NULL!=strstr(ver,"OpenGL ES 3") ? GL_DEPTH_COMPONENT24 : GL_DEPTH_COMPONENT);
+        glTexImage2D(GL_TEXTURE_2D,0,internalFormat,wid,hei,0,GL_DEPTH_COMPONENT,GL_UNSIGNED_INT,nullptr);
+    }
 #else
     glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT,wid,hei,0,GL_DEPTH_COMPONENT,GL_UNSIGNED_INT,nullptr); // ES needs to use GL_UNSIGNED_INT
 #endif
