@@ -401,6 +401,23 @@ void YsGLSLSet3DRendererProjectionfv(struct YsGLSL3DRenderer *renderer,const GLf
 	}
 }
 
+void YsGLSLSet3DRendererProjectionStereofv(struct YsGLSL3DRenderer *renderer,const GLfloat mat[32])
+{
+	/* OVR_multiview2 stereo: the program must have been compiled with
+	   YsGLSLSetCompileNumViews(2), which turns 'uniform mat4 projection'
+	   into a two-view array indexed by gl_ViewID_OVR.  Array uniform
+	   locations are contiguous, so one call sets both views. */
+	if(NULL!=renderer)
+	{
+		int i;
+		glUniformMatrix4fv(renderer->uniformProjectionPos,2,GL_FALSE,mat);
+		for(i=0; i<16; ++i)
+		{
+			renderer->projectionMatrix[i]=mat[i];
+		}
+	}
+}
+
 void YsGLSLSet3DRendererProjectiondv(struct YsGLSL3DRenderer *renderer,const double mat[16])
 {
 	if(NULL!=renderer)

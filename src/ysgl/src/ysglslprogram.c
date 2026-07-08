@@ -2118,8 +2118,6 @@ const char *YSGLSL_variColorMarkerByPointSprite3DDrawingFragmentShader[]=
 	"#endif\n",
 	"\n",
 	"\n",
-	"uniform  HIGHP  mat4  projection;\n",
-	"uniform  HIGHP  mat4  modelView;\n",
 	"\n",
 	"uniform LOWP int markerType;\n",
 	"uniform MIDP float dimension;\n",
@@ -2257,7 +2255,7 @@ const char *YSGLSL_variColorMarkerByPointSprite3DDrawingFragmentShader[]=
 	"\n",
 	"}\n",
 };
-const int YSGLSL_variColorMarkerByPointSprite3DDrawingFragmentShader_nLine=186;
+const int YSGLSL_variColorMarkerByPointSprite3DDrawingFragmentShader_nLine=184;
 const char *YSGLSL_variColorMarkerByPointSprite3DDrawingVertexShader[]=
 {
 	"#define YSGLSL_TEX_TYPE_NONE                0\n",

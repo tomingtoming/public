@@ -128,6 +128,7 @@ YSRESULT YsGLSLSetShared3DRendererFog(int enableFog,const GLfloat density,const 
 YSRESULT YsGLSLSetShared3DRendererProjection(const GLfloat proj[16]);
 
 /*! This function sets modelview matrix to all applicable shared 3D renderers. */
+YSRESULT YsGLSLSetShared3DRendererProjectionStereo(const GLfloat proj[32]);
 YSRESULT YsGLSLSetShared3DRendererModelView(const GLfloat modelview[16]);
 
 /*! This function sets directional light to all applicable shared 3D renderers. */
