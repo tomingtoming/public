@@ -248,20 +248,30 @@ YSRESULT YsTextureManager::Unit::Bind(int texIdent) const
 		glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE);
 	#endif
 
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-
-		GLint filterType;
-		if(FILTERTYPE_LINEAR==GetFilterType())
+		if(FOM_RAW_Z==GetFileType())
 		{
-			filterType=GL_LINEAR;
+			// A depth render target keeps its creation-time sampler state
+			// (CLAMP_TO_EDGE, and NEAREST on GLES3/WebGL2 where a depth
+			// texture is not filterable: LINEAR would make it incomplete and
+			// sample as 0, turning the whole scene into shadow).
 		}
 		else
 		{
-			filterType=GL_NEAREST;
+			GLint filterType;
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+
+			if(FILTERTYPE_LINEAR==GetFilterType())
+			{
+				filterType=GL_LINEAR;
+			}
+			else
+			{
+				filterType=GL_NEAREST;
+			}
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,filterType);
+			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,filterType);
 		}
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,filterType);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,filterType);
 
 	#ifdef GL_TEXTURE_GEN_S
 		glDisable(GL_TEXTURE_GEN_S);
