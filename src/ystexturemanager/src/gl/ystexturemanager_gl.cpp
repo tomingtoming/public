@@ -102,6 +102,14 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	glBindTexture(GL_TEXTURE_2D,texPtr->texId);
 #if (!defined(GL_ES) || GL_ES==0) && !defined(GL_ES_VERSION_2_0)
     glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT32,wid,hei,0,GL_DEPTH_COMPONENT,GL_FLOAT,nullptr);
+#elif defined(__EMSCRIPTEN__)
+    // WebGL2 rejects the unsized GL_DEPTH_COMPONENT internalformat that WebGL1
+    // (WEBGL_depth_texture) accepted; a sized format is required.  The value is
+    // defined here because the build still uses the GL ES 2.0 headers.
+    #ifndef GL_DEPTH_COMPONENT24
+    #define GL_DEPTH_COMPONENT24 0x81A6
+    #endif
+    glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT24,wid,hei,0,GL_DEPTH_COMPONENT,GL_UNSIGNED_INT,nullptr);
 #else
     glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT,wid,hei,0,GL_DEPTH_COMPONENT,GL_UNSIGNED_INT,nullptr); // ES needs to use GL_UNSIGNED_INT
 #endif
