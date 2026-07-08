@@ -51,9 +51,10 @@
 //    0: Attributes vertex and offset are both taken as in 3D coordinate.
 //    1: Attributes vertex and offset are both taken as in window coordinate.
 //    2: Attribute vertex is taken as in 3D coordinate, and offset is taken as in window coordinate
-uniform  HIGHP  mat4 projection,modelView;
+uniform  HIGHP  mat4 projection;
+uniform  HIGHP  mat4 modelView;
 uniform  MIDP  float viewportWid,viewportHei;
-uniform sampler2D texture;
+uniform sampler2D bmpTexture;
 uniform int transformationType;
 uniform int viewportOrigin;
 uniform  LOWP  float alphaCutOff;

@@ -37,21 +37,21 @@ void main()
 #ifdef ENABLE_SHADOW_TEST
 	LOWP  vec4 shadowTestColor[YSGLSL_SHADOWMAP_MAX_NUM_TEXTURE];
 #endif
-	for(int i=0; i<YSGLSL_SHADOWMAP_MAX_NUM_TEXTURE; ++i)
-	{
-		inShadow[i]=0.0;
-
-		// This if-statement improved the frame rate from 38+ to 55+ in ThinkPad X250.
-		// I have a serious doubt about the suggestion that if-statement should be avoided all together in fragment shaders.
-		if(0.999<inVolume[i])
-		{
-			HIGHP float shadowDepth=texture2D(shadowMapTexture[i],shadowCoord[i].xy).r;
-			inShadow[i]=useShadowMap[i]*inVolume[i]*step(shadowDepth,shadowCoord[i].z);
-		#ifdef ENABLE_SHADOW_TEST
-			shadowTestColor[i]=inVolume[i]*YsGLSLRainbowColor(shadowDepth)+vec4(1,0,1,1)*(1.0-inVolume[i]);
-		#endif
-		}
-	}
+	// GLSL ES 3.00 allows only a constant integral expression to index an array
+	// of samplers, so the shadow-map loop is unrolled with literal indices via a
+	// single-line macro (ES 1.00 has no line continuation).
+	// The if-statement improved the frame rate from 38+ to 55+ in ThinkPad X250.
+	// I have a serious doubt about the suggestion that if-statement should be avoided all together in fragment shaders.
+#ifdef ENABLE_SHADOW_TEST
+	#define YSGLSL_SAMPLE_SHADOWMAP(i) inShadow[i]=0.0; if(0.999<inVolume[i]) { HIGHP float shadowDepth=texture2D(shadowMapTexture[i],shadowCoord[i].xy).r; inShadow[i]=useShadowMap[i]*inVolume[i]*step(shadowDepth,shadowCoord[i].z); shadowTestColor[i]=inVolume[i]*YsGLSLRainbowColor(shadowDepth)+vec4(1,0,1,1)*(1.0-inVolume[i]); }
+#else
+	#define YSGLSL_SAMPLE_SHADOWMAP(i) inShadow[i]=0.0; if(0.999<inVolume[i]) { HIGHP float shadowDepth=texture2D(shadowMapTexture[i],shadowCoord[i].xy).r; inShadow[i]=useShadowMap[i]*inVolume[i]*step(shadowDepth,shadowCoord[i].z); }
+#endif
+	YSGLSL_SAMPLE_SHADOWMAP(0)
+	YSGLSL_SAMPLE_SHADOWMAP(1)
+#if 3<=YSGLSL_SHADOWMAP_MAX_NUM_TEXTURE
+	YSGLSL_SAMPLE_SHADOWMAP(2)
+#endif
 
 	// If either one of inShadow0 or inShadow1 is 1, specular and diffuse must be off (lightCoeff=0)
 #if 3<=YSGLSL_SHADOWMAP_MAX_NUM_TEXTURE

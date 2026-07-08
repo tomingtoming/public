@@ -114,8 +114,16 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     glTexImage2D(GL_TEXTURE_2D,0,GL_DEPTH_COMPONENT,wid,hei,0,GL_DEPTH_COMPONENT,GL_UNSIGNED_INT,nullptr); // ES needs to use GL_UNSIGNED_INT
 #endif
 
+#ifdef __EMSCRIPTEN__
+	// GLES3/WebGL2: a DEPTH_COMPONENT texture is not filterable; sampling it
+	// with LINEAR through a plain sampler2D yields undefined results (0 on
+	// ANGLE).  NEAREST is required for the ES 3.00 texture() depth read.
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+#else
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+#endif
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
 
