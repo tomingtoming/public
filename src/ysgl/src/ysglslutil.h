@@ -48,6 +48,13 @@ extern "C" {
    2=two-view.  Affects programs compiled AFTER the call; the VR runtime sets
    it before (re)creating renderers that draw into a multiview framebuffer. */
 void YsGLSLSetCompileNumViews(int nViews);
+/* Returns the multiview mode (0 or 2) that is currently in effect for
+   YsGLSLES3ConvertSourceIfNeeded -- i.e. what YsGLSLSetCompileNumViews was
+   last called with.  A renderer that compiles its own shader source (rather
+   than going through YsGLSLCompileAndLinkVertexAndFragmentShader) can use
+   this at creation time to remember whether its 'projection' uniform came
+   out as a plain mat4 or a two-view mat4[2] array. */
+int YsGLSLGetCompileNumViews(void);
 /* Rewrites a GLSL ES 1.00 source to ES 3.00 when the runtime context is ES3
    (WebGL2); returns the input unchanged otherwise.  Takes ownership of the
    malloc'ed input and returns a malloc'ed string. */

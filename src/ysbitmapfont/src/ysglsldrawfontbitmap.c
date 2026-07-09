@@ -70,6 +70,7 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "ysglsldrawfontbitmap.h"
 #include "ysglfontdata.h"
+#include "ysglslutil.h"
 
 
 // This shader program assumes the height of the font is greater or equal to the width.
@@ -86,9 +87,10 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 static const char *uglyFontVertexShaderSrc[]=
 {
-	"uniform mat4 projection,modelView;\n",
+	"uniform mat4 projection;\n",
+	"uniform mat4 modelView;\n",
 	"uniform "YS_GLSL_MIDP" float viewportWid,viewportHei;\n",
-	"uniform sampler2D texture;\n",
+	"uniform sampler2D fontTexture;\n",
 	"uniform bool windowCoord;\n",
 	"uniform "YS_GLSL_LOWP" vec4 color;\n",
 	"uniform int viewportOrigin;\n",
@@ -147,7 +149,7 @@ static const char *uglyFontFragmentShaderSrc[]=
 // Forget about it.  GLSL that comes with Mac OS 10.6 does not support gl_PointCoord.
 //
 	"uniform "YS_GLSL_MIDP" float viewportWid,viewportHei;\n",
-	"uniform sampler2D texture;\n",
+	"uniform sampler2D fontTexture;\n",
 	"uniform bool windowCoord;\n",
 	"uniform "YS_GLSL_LOWP" vec4 color;\n",
 	"\n",
@@ -162,7 +164,7 @@ static const char *uglyFontFragmentShaderSrc[]=
 	"	{\n",
 	"		discard;\n",
 	"	}\n",
-	"	"YS_GLSL_LOWP" vec4 texcell=texture2D(texture,texCoordOut);\n",
+	"	"YS_GLSL_LOWP" vec4 texcell=texture2D(fontTexture,texCoordOut);\n",
 	"	if(0.5<texcell[0])\n",
 	"	{\n",
 	"		gl_FragColor=color;\n",
@@ -195,6 +197,13 @@ struct YsGLSLBitmapFontRenderer
 	// Shader and Program
 	GLuint programId;
 	GLuint vertexShaderId,fragmentShaderId;
+	// 0: compiled mono (plain mat4 projection uniform).
+	// 2: compiled under YsGLSLSetCompileNumViews(2) (OVR_multiview2 -- the
+	//    ES3 rewrite turned the projection uniform into a mat4[2] array
+	//    indexed by gl_ViewID_OVR); the setters below must then upload the
+	//    same matrix to both array slots (HUD text has no per-eye parallax
+	//    yet).
+	int numViews;
 
 	// Uniform
 	GLuint uniformViewportWidPos;
@@ -244,6 +253,30 @@ static char *MakeSingleLineProgram(long long int nLine,const char *prog[])
 	return dat;
 }
 
+// Uploads the projection matrix to renderer->uniformProjectionPos.  When the
+// program was compiled with YsGLSLSetCompileNumViews(2) (OVR_multiview2
+// single-pass stereo), the ES3 rewrite turned 'uniform mat4 projection' into
+// 'uniform mat4 projection[2]' indexed by gl_ViewID_OVR, so a plain count=1
+// upload would leave view 1's slot at whatever garbage/zero it started as.
+// This renderer draws the same HUD text for both eyes (no per-eye parallax
+// yet), so the same 4x4 matrix is just duplicated into both array slots and
+// uploaded together -- array uniform locations are contiguous, so one
+// glUniformMatrix4fv(...,2,...) call reaches both.
+static void YsGLSLBitmapFontRendererUploadProjection(struct YsGLSLBitmapFontRenderer *renderer,const GLfloat projectionMat[16])
+{
+	if(2==renderer->numViews)
+	{
+		GLfloat dup[32];
+		memcpy(dup,projectionMat,16*sizeof(GLfloat));
+		memcpy(dup+16,projectionMat,16*sizeof(GLfloat));
+		glUniformMatrix4fv(renderer->uniformProjectionPos,2,GL_FALSE,dup);
+	}
+	else
+	{
+		glUniformMatrix4fv(renderer->uniformProjectionPos,1,GL_FALSE,projectionMat);
+	}
+}
+
 struct YsGLSLBitmapFontRenderer *YsGLSLCreateBitmapFontRenderer(void)
 {
 	struct YsGLSLBitmapFontRenderer *renderer=(struct YsGLSLBitmapFontRenderer *)malloc(sizeof(struct YsGLSLBitmapFontRenderer));
@@ -262,6 +295,7 @@ struct YsGLSLBitmapFontRenderer *YsGLSLCreateBitmapFontRenderer(void)
 
 
 	renderer->inUse=0;
+	renderer->numViews=0;
 
 	renderer->vertexShaderId=glCreateShader(GL_VERTEX_SHADER);
 	renderer->fragmentShaderId=glCreateShader(GL_FRAGMENT_SHADER);
@@ -283,6 +317,21 @@ struct YsGLSLBitmapFontRenderer *YsGLSLCreateBitmapFontRenderer(void)
 		char *vtxShader[1],*fragShader[1];
 		vtxShader[0]=MakeSingleLineProgram(sizeof(uglyFontVertexShaderSrc)/sizeof(const char *),uglyFontVertexShaderSrc);
 		fragShader[0]=MakeSingleLineProgram(sizeof(uglyFontFragmentShaderSrc)/sizeof(const char *),uglyFontFragmentShaderSrc);
+
+		// This renderer builds its own single-string program instead of going
+		// through YsGLSLCompileAndLinkVertexAndFragmentShader, so it has to
+		// call the ES3/WebGL2 rewriter itself.  YsGLSLES3ConvertSourceIfNeeded
+		// takes ownership of the malloc'ed input and hands back a (possibly
+		// different) malloc'ed string; it is a no-op on a non-ES3 runtime.
+		// Only declared/defined under YS_GL_ES2 (emscripten/Android/iOS) --
+		// desktop builds never see this call.
+#ifdef YS_GL_ES2
+		vtxShader[0]=YsGLSLES3ConvertSourceIfNeeded(vtxShader[0],0);
+		fragShader[0]=YsGLSLES3ConvertSourceIfNeeded(fragShader[0],1);
+		renderer->numViews=YsGLSLGetCompileNumViews();
+#else
+		renderer->numViews=0;
+#endif
 
 		glShaderSource(renderer->vertexShaderId,1,vtxShader,NULL); // Last NULL assumes each line is C string
 		glShaderSource(renderer->fragmentShaderId,1,fragShader,NULL); // Last NULL assumes each line is C string
@@ -327,7 +376,7 @@ struct YsGLSLBitmapFontRenderer *YsGLSLCreateBitmapFontRenderer(void)
 	renderer->uniformProjectionPos=glGetUniformLocation(renderer->programId,"projection");
 	renderer->uniformModelViewPos=glGetUniformLocation(renderer->programId,"modelView");
 	renderer->uniformColorPos=glGetUniformLocation(renderer->programId,"color");
-	renderer->uniformTexturePos=glGetUniformLocation(renderer->programId,"texture");
+	renderer->uniformTexturePos=glGetUniformLocation(renderer->programId,"fontTexture");
 	renderer->uniformViewportOriginPos=glGetUniformLocation(renderer->programId,"viewportOrigin");
 
 	// Attributes
@@ -366,7 +415,7 @@ struct YsGLSLBitmapFontRenderer *YsGLSLCreateBitmapFontRenderer(void)
 	glUseProgram(renderer->programId);
 
 	glUniformMatrix4fv(renderer->uniformModelViewPos,1,GL_FALSE,identity);
-	glUniformMatrix4fv(renderer->uniformProjectionPos,1,GL_FALSE,identity);
+	YsGLSLBitmapFontRendererUploadProjection(renderer,identity);
 
 	YsGLSLSetBitmapFontRendererColor4ub(renderer,255,255,255,255);
 
@@ -720,7 +769,7 @@ void YsGLSLSetBitmapFontRendererProjectionfv(struct YsGLSLBitmapFontRenderer *re
 {
 	if(NULL!=renderer)
 	{
-		glUniformMatrix4fv(renderer->uniformProjectionPos,1,GL_FALSE,projectionMat);
+		YsGLSLBitmapFontRendererUploadProjection(renderer,projectionMat);
 	}
 }
 
