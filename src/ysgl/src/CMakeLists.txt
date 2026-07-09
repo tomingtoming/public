@@ -310,6 +310,7 @@ ysglbitmap.c
 ysglmath.c
 ysglsl3ddrawing.c
 ysglslbitmaprenderer.c
+ysglslhudquadrenderer.c
 ysglslplain2ddrawing.c
 ysglslsharedrenderer.c
 ysglslutil.c
@@ -330,6 +331,7 @@ ysglheader.h
 ysglmath.h
 ysglsl3ddrawing.h
 ysglslbitmaprenderer.h
+ysglslhudquadrenderer.h
 ysglslplain2ddrawing.h
 ysglslsharedrenderer.h
 ysglslutil.h

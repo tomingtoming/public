@@ -231,6 +231,11 @@ void YsGLSLSetCompileNumViews(int nViews)
 	YsGLSLCompileNumViews=(2==nViews ? 2 : 0);
 }
 
+int YsGLSLGetCompileNumViews(void)
+{
+	return YsGLSLCompileNumViews;
+}
+
 char *YsGLSLES3ConvertSourceIfNeeded(char *linearSource,int isFragmentShader)
 {
 	if(0!=YsGLSLES3RuntimeDetected())
