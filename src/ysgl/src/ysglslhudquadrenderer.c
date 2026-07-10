@@ -86,6 +86,10 @@ static const char *hudQuadFragmentShaderSrc=
 	"void main(void)\n"
 	"{\n"
 	"	fragColor = texture(hudTexture, vec3(tc, float(gl_ViewID_OVR)));\n"
+	// Alpha gain: the HUD is drawn as ~1-texel lines, and LINEAR minification
+	// on the composite quad averages them toward transparent -- boosting the
+	// sampled alpha keeps thin symbology readable against bright sky.
+	"	fragColor.a = min(fragColor.a*1.8, 1.0);\n"
 	"}\n";
 
 struct YsGLSLHudQuadRenderer
