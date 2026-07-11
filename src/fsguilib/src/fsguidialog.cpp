@@ -5953,6 +5953,20 @@ YSBOOL FsGuiDialog::GetTransparency(void) const
 	return YSFALSE;
 }
 
+YSSIZE_T FsGuiDialog::GetNumItem(void) const
+{
+	return itemList.GetN();
+}
+
+const FsGuiDialogItem *FsGuiDialog::GetItem(YSSIZE_T idx) const
+{
+	if(idx<0 || itemList.GetN()<=idx)
+	{
+		return NULL;
+	}
+	return itemList[idx];
+}
+
 FsGuiDialogItem *FsGuiDialog::FindItem(int mx,int my)
 {
 	int i;
