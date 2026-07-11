@@ -1249,6 +1249,17 @@ public:
 	YSBOOL GetTransparency(void) const;
 
 
+	/*! Read-only access to this dialog's items, in the order they were added
+	    (FsGuiDialog::AddTextButton/AddStaticText/... push onto itemList; see
+	    SetUpButton).  Lets a caller enumerate a dialog's buttons/labels
+	    generically (e.g. ysflight-web's VR selection-guide reads a modal
+	    in-flight dialog's option labels back out this way -- see
+	    FsSimulation::SimSerializeVrGuiMenu in fssimulation.cpp) without
+	    needing to special-case every FsGuiDialog subclass. */
+	YSSIZE_T GetNumItem(void) const;
+	/*! Returns NULL if idx is out of range. */
+	const FsGuiDialogItem *GetItem(YSSIZE_T idx) const;
+
 	/*! This function returns a pointer to a FsGuiDialogItem where (mx,my) is lying on regardless of the item is visible or hidden. */
 	FsGuiDialogItem *FindItem(int mx,int my);
 
