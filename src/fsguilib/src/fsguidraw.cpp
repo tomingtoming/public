@@ -37,6 +37,16 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fsgui.h"
 #include "fsguibitmaputil.h"
 
+// Optional app hook: when non-NULL, called every time a text box draws
+// itself with keyboard focus.  ysflight-web's VR layer latches this around
+// its off-screen menu pass as a per-frame "text input is expected here"
+// signal, used to summon the headset's system keyboard (see that project's
+// fsopengl2.0.cpp FsVrBegin/EndMenuRender and fswebxr.cpp).  The signature
+// deliberately involves no fsgui types so any consumer can reference it
+// with a plain extern declaration; NULL (the default) is a no-op for every
+// other user of fsguilib.
+void (*fsGuiTextBoxFocusDrawnHook)(void)=NULL;
+
 
 class FsGuiFont
 {
@@ -937,6 +947,11 @@ void FsGuiButton::Draw(YSBOOL focus,YSBOOL mouseOver,const YsColor &defBgCol,con
 
 void FsGuiTextBox::Draw(YSBOOL focus,YSBOOL mouseOver,const YsColor &defBgCol,const YsColor &defFgCol,const YsColor &activeBgCol,const YsColor &activeFgCol,const YsColor & frameCol) const
 {
+	if(YSTRUE==focus && NULL!=fsGuiTextBoxFocusDrawnHook)
+	{
+		(*fsGuiTextBoxFocusDrawnHook)();
+	}
+
 	// sx+fontWid,sy+fontHei*3/2  Label
 
 	// sx+fontWid,sy-fontHei*3/2
