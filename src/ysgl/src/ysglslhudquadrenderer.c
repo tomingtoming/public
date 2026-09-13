@@ -117,10 +117,15 @@ struct YsGLSLHudQuadRenderer *YsGLSLCreateHudQuadRenderer(void)
 	/* The ES3/multiview shader below cannot compile on a non-multiview context.
 	   Only build a renderer when the shared renderers are in stereo compile
 	   mode. */
+#ifdef YS_GL_ES2
 	if(2!=YsGLSLGetCompileNumViews())
 	{
 		return NULL;
 	}
+#else
+	/* Multiview compile mode is only available in GLES builds. */
+	return NULL;
+#endif
 
 	renderer=(struct YsGLSLHudQuadRenderer *)malloc(sizeof(struct YsGLSLHudQuadRenderer));
 	if(NULL==renderer)
