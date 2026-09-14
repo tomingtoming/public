@@ -2,9 +2,14 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
     tags-ignore:
       - 'v*' # Don't run if tagged as v*.
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
 
 jobs:
   build-windows:
@@ -12,13 +17,13 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7
     - name: mkdir
       run: mkdir ci_windows
     - name: build
       run: |
-          cmake ../src
-          cmake --build . --config Release
+          cmake ../src -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake --build . --config Release --parallel 4
       working-directory: ./ci_windows
 
 
@@ -28,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7
     - name: mkdir
       run: mkdir ci_ubuntu
     - name: install-OpenGL
@@ -38,10 +43,10 @@ jobs:
     - name: install-ALSA
       run: sudo apt-get install libasound2-dev
     - name: cmake
-      run: cmake ../src -DCMAKE_BUILD_TYPE=Release
+      run: cmake ../src -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release
       working-directory: ./ci_ubuntu
     - name: build
-      run: cmake --build . --config Release
+      run: cmake --build . --config Release --parallel 4
       working-directory: ./ci_ubuntu
 
 
@@ -51,12 +56,12 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7
     - name: mkdir
       run: mkdir ci_macos
     - name: cmake
-      run: cmake ../src -DCMAKE_BUILD_TYPE=Release
+      run: cmake ../src -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release
       working-directory: ./ci_macos
     - name: build
-      run: cmake --build .
+      run: cmake --build . --parallel 4
       working-directory: ./ci_macos
