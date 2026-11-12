@@ -229,6 +229,7 @@ GLuint YsGLSLUseBitmapRenderer(struct YsGLSLBitmapRenderer *renderer)
 		glEnableVertexAttribArray(renderer->offsetPos);
 		glEnableVertexAttribArray(renderer->texCoordPos);
 
+		YsGLSLNon3DRendererIsActivated(renderer->inUse);
 		renderer->inUse=1;
 	}
 
@@ -243,6 +244,7 @@ void YsGLSLEndUseBitmapRenderer(struct YsGLSLBitmapRenderer *renderer)
 		glDisableVertexAttribArray(renderer->offsetPos);
 		glDisableVertexAttribArray(renderer->texCoordPos);
 
+		YsGLSLNon3DRendererIsDeactivated(renderer->inUse);
 		renderer->inUse=0;
 	}
 }

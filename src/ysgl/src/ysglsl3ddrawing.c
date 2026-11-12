@@ -164,6 +164,16 @@ struct YsGLSL3DRenderer
 	GLint attribPixelOffsetPos;  // -1 if no pixel offset
 	GLint attribPointSizePos;
 
+	// Lazy vertex-attribute arrays.  See YsGLSLUse3DRenderer.
+	// colorArrayEnabled and texCoordArrayEnabled above tell what the arrays
+	// are supposed to be.  The following three tell what has actually been
+	// sent to OpenGL.  They are always same as supposed unless lazyArray is
+	// YSTRUE.
+	YSBOOL lazyArray;
+	YSBOOL fixedArrayActuallyEnabled;  // Vertex, normal, view offset, pixel offset, and point size.
+	YSBOOL colorArrayActuallyEnabled;
+	YSBOOL texCoordArrayActuallyEnabled;
+
 	// Memo for adding attributes:
 	//   Attribute position must be set to -1 in YsGLSLCreateAndInitialize3DRenderer
 	//   Attributes array needs to be enabled in YsGLSLUse3DRenderer and disabled in YsGLSLEndUse3DRenderer.
@@ -289,6 +299,10 @@ static struct YsGLSL3DRenderer *YsGLSLCreateAndInitialize3DRenderer(void)
 	renderer->attribNormalPos=-1;
 	renderer->attribTexCoordPos=-1;
 	renderer->texCoordArrayEnabled=YSFALSE;
+	renderer->lazyArray=YSFALSE;
+	renderer->fixedArrayActuallyEnabled=YSFALSE;
+	renderer->colorArrayActuallyEnabled=YSFALSE;
+	renderer->texCoordArrayActuallyEnabled=YSFALSE;
 	renderer->attribViewOffsetPos=-1;
 	renderer->attribPixelOffsetPos=-1;
 	renderer->attribPointSizePos=-1;
@@ -335,11 +349,54 @@ static int YsGLSLGetShadowMapUniformPos(struct YsGLSL3DRenderer *renderer,const 
 	return ec;
 }
 
+// Number of 3D renderers in use, and the renderer whose vertex-attribute
+// arrays are lazy (at most one).  See YsGLSLUse3DRenderer.
+static int ysGLSLNum3DRendererInUse=0;
+static int ysGLSLNumNon3DRendererInUse=0;
+static struct YsGLSL3DRenderer *ysGLSLLazyArray3DRenderer=NULL;
+
+// Enables the arrays that every drawing function gives: vertex, normal,
+// view offset, pixel offset, and point size.  Every drawing function calls
+// one of YsGLSLTexCoordIsNotGivenAsArray and YsGLSLTexCoordIsGivenAsArray
+// before it draws, and they call this function.
+static void YsGLSLEnableFixedArray(struct YsGLSL3DRenderer *renderer)
+{
+	if(YSTRUE!=renderer->fixedArrayActuallyEnabled)
+	{
+		if(0<=renderer->attribVertexPos)
+		{
+			glEnableVertexAttribArray(renderer->attribVertexPos);
+		}
+		if(0<=renderer->attribNormalPos)
+		{
+			glEnableVertexAttribArray(renderer->attribNormalPos);
+		}
+		if(0<=renderer->attribPixelOffsetPos)
+		{
+			glEnableVertexAttribArray(renderer->attribPixelOffsetPos);
+		}
+		if(0<=renderer->attribViewOffsetPos)
+		{
+			glEnableVertexAttribArray(renderer->attribViewOffsetPos);
+		}
+		if(0<=renderer->attribPointSizePos)
+		{
+			glEnableVertexAttribArray(renderer->attribPointSizePos);
+		}
+		renderer->fixedArrayActuallyEnabled=YSTRUE;
+	}
+}
+
 static void YsGLSLTexCoordIsNotGivenAsArray(struct YsGLSL3DRenderer *renderer)
 {
+	YsGLSLEnableFixedArray(renderer);
 	if(0<=renderer->attribTexCoordPos && YSTRUE==renderer->texCoordArrayEnabled)
 	{
-		glDisableVertexAttribArray(renderer->attribTexCoordPos);
+		if(YSTRUE==renderer->texCoordArrayActuallyEnabled)
+		{
+			glDisableVertexAttribArray(renderer->attribTexCoordPos);
+			renderer->texCoordArrayActuallyEnabled=YSFALSE;
+		}
 		renderer->texCoordArrayEnabled=YSFALSE;
 		glVertexAttrib2f(renderer->attribTexCoordPos,0.0f,0.0f);
 	}
@@ -347,9 +404,14 @@ static void YsGLSLTexCoordIsNotGivenAsArray(struct YsGLSL3DRenderer *renderer)
 
 static void YsGLSLTexCoordIsGivenAsArray(struct YsGLSL3DRenderer *renderer)
 {
-	if(0<=renderer->attribTexCoordPos && YSTRUE!=renderer->texCoordArrayEnabled)
+	YsGLSLEnableFixedArray(renderer);
+	if(0<=renderer->attribTexCoordPos)
 	{
-		glEnableVertexAttribArray(renderer->attribTexCoordPos);
+		if(YSTRUE!=renderer->texCoordArrayActuallyEnabled)
+		{
+			glEnableVertexAttribArray(renderer->attribTexCoordPos);
+			renderer->texCoordArrayActuallyEnabled=YSTRUE;
+		}
 		renderer->texCoordArrayEnabled=YSTRUE;
 	}
 }
@@ -360,7 +422,11 @@ static void YsGLSLColorIsNotGivenAsArray(struct YsGLSL3DRenderer *renderer)
 	{
 		if(YSTRUE==renderer->colorArrayEnabled)
 		{
-			glDisableVertexAttribArray(renderer->attribColorPos);
+			if(YSTRUE==renderer->colorArrayActuallyEnabled)
+			{
+				glDisableVertexAttribArray(renderer->attribColorPos);
+				renderer->colorArrayActuallyEnabled=YSFALSE;
+			}
 			renderer->colorArrayEnabled=YSFALSE;
 		}
 		glVertexAttrib4f(renderer->attribColorPos,renderer->uniformColor[0],renderer->uniformColor[1],renderer->uniformColor[2],renderer->uniformColor[3]);
@@ -369,10 +435,52 @@ static void YsGLSLColorIsNotGivenAsArray(struct YsGLSL3DRenderer *renderer)
 
 static void YsGLSLColorIsGivenAsArray(struct YsGLSL3DRenderer *renderer)
 {
-	if(0<=renderer->attribColorPos && YSTRUE!=renderer->colorArrayEnabled)
+	if(0<=renderer->attribColorPos)
 	{
-		glEnableVertexAttribArray(renderer->attribColorPos);
+		if(YSTRUE!=renderer->colorArrayActuallyEnabled)
+		{
+			glEnableVertexAttribArray(renderer->attribColorPos);
+			renderer->colorArrayActuallyEnabled=YSTRUE;
+		}
 		renderer->colorArrayEnabled=YSTRUE;
+	}
+}
+
+void YsGLSLMaterialize3DRendererVertexAttribArray(void)
+{
+	struct YsGLSL3DRenderer *renderer=ysGLSLLazyArray3DRenderer;
+	if(NULL!=renderer)
+	{
+		YsGLSLEnableFixedArray(renderer);
+		if(0<=renderer->attribColorPos && YSTRUE==renderer->colorArrayEnabled && YSTRUE!=renderer->colorArrayActuallyEnabled)
+		{
+			glEnableVertexAttribArray(renderer->attribColorPos);
+			renderer->colorArrayActuallyEnabled=YSTRUE;
+		}
+		if(0<=renderer->attribTexCoordPos && YSTRUE==renderer->texCoordArrayEnabled && YSTRUE!=renderer->texCoordArrayActuallyEnabled)
+		{
+			glEnableVertexAttribArray(renderer->attribTexCoordPos);
+			renderer->texCoordArrayActuallyEnabled=YSTRUE;
+		}
+		renderer->lazyArray=YSFALSE;
+		ysGLSLLazyArray3DRenderer=NULL;
+	}
+}
+
+void YsGLSLNon3DRendererIsActivated(int wasInUse)
+{
+	YsGLSLMaterialize3DRendererVertexAttribArray();
+	if(0==wasInUse)
+	{
+		++ysGLSLNumNon3DRendererInUse;
+	}
+}
+
+void YsGLSLNon3DRendererIsDeactivated(int wasInUse)
+{
+	if(0!=wasInUse && 0<ysGLSLNumNon3DRendererInUse)
+	{
+		--ysGLSLNumNon3DRendererInUse;
 	}
 }
 
@@ -380,6 +488,15 @@ void YsGLSLDelete3DRenderer(struct YsGLSL3DRenderer *renderer)
 {
 	if(NULL!=renderer)
 	{
+		if(ysGLSLLazyArray3DRenderer==renderer)
+		{
+			ysGLSLLazyArray3DRenderer=NULL;
+		}
+		if(0!=renderer->inUse && 0<ysGLSLNum3DRendererInUse)
+		{
+			--ysGLSLNum3DRendererInUse;
+		}
+
 		glDeleteProgram(renderer->programId);
 		glDeleteShader(renderer->vertexShaderId);
 		glDeleteShader(renderer->fragmentShaderId);
@@ -868,37 +985,85 @@ GLuint YsGLSLUse3DRenderer(struct YsGLSL3DRenderer *renderer)
 
 		glUseProgram(renderer->programId);
 
-		if(0<=renderer->attribVertexPos)
+		// Lazy vertex-attribute arrays.
+		//
+		// A renderer is supposed to have all of its vertex-attribute arrays
+		// enabled while it is in use.  However, a renderer is very often
+		// made current only for setting uniforms, or draws without a color
+		// array or a texture-coordinate array, and then the arrays are
+		// enabled and disabled for nothing.
+		//
+		// When no other 3D renderer is in use, the arrays are not enabled
+		// here.  A drawing function enables what it gives when it draws
+		// (YsGLSLEnableFixedArray, YsGLSL*IsGivenAsArray), which makes the
+		// same set of arrays enabled for the draw call as before, and
+		// YsGLSLEndUse3DRenderer disables only what was enabled.
+		//
+		// When something else that depends on the arrays starts before
+		// this renderer ends (another 3D renderer, or a renderer of another
+		// kind), YsGLSLMaterialize3DRendererVertexAttribArray enables the
+		// rest of the arrays, and the renderer behaves as it always did.
+		// So does a renderer that is made current while another renderer
+		// of any kind is in use.
+		YsGLSLMaterialize3DRendererVertexAttribArray();
+		if(0==ysGLSLNum3DRendererInUse && 0==ysGLSLNumNon3DRendererInUse && 0==renderer->inUse)
 		{
-			glEnableVertexAttribArray(renderer->attribVertexPos);
+			renderer->lazyArray=YSTRUE;
+			renderer->fixedArrayActuallyEnabled=YSFALSE;
+			renderer->colorArrayActuallyEnabled=YSFALSE;
+			renderer->texCoordArrayActuallyEnabled=YSFALSE;
+			if(0<=renderer->attribColorPos)
+			{
+				renderer->colorArrayEnabled=YSTRUE;
+			}
+			if(0<=renderer->attribTexCoordPos)
+			{
+				renderer->texCoordArrayEnabled=YSTRUE;
+			}
+			ysGLSLLazyArray3DRenderer=renderer;
 		}
-		if(0<=renderer->attribColorPos)
+		else
 		{
-			glEnableVertexAttribArray(renderer->attribColorPos);
-			renderer->colorArrayEnabled=YSTRUE;
-		}
-		if(0<=renderer->attribNormalPos)
-		{
-			glEnableVertexAttribArray(renderer->attribNormalPos);
-		}
-		if(0<=renderer->attribTexCoordPos)
-		{
-			glEnableVertexAttribArray(renderer->attribTexCoordPos);
-			renderer->texCoordArrayEnabled=YSTRUE;
-		}
-		if(0<=renderer->attribPixelOffsetPos)
-		{
-			glEnableVertexAttribArray(renderer->attribPixelOffsetPos);
-		}
-		if(0<=renderer->attribViewOffsetPos)
-		{
-			glEnableVertexAttribArray(renderer->attribViewOffsetPos);
-		}
-		if(0<=renderer->attribPointSizePos)
-		{
-			glEnableVertexAttribArray(renderer->attribPointSizePos);
+			renderer->lazyArray=YSFALSE;
+			if(0<=renderer->attribVertexPos)
+			{
+				glEnableVertexAttribArray(renderer->attribVertexPos);
+			}
+			if(0<=renderer->attribColorPos)
+			{
+				glEnableVertexAttribArray(renderer->attribColorPos);
+				renderer->colorArrayEnabled=YSTRUE;
+				renderer->colorArrayActuallyEnabled=YSTRUE;
+			}
+			if(0<=renderer->attribNormalPos)
+			{
+				glEnableVertexAttribArray(renderer->attribNormalPos);
+			}
+			if(0<=renderer->attribTexCoordPos)
+			{
+				glEnableVertexAttribArray(renderer->attribTexCoordPos);
+				renderer->texCoordArrayEnabled=YSTRUE;
+				renderer->texCoordArrayActuallyEnabled=YSTRUE;
+			}
+			if(0<=renderer->attribPixelOffsetPos)
+			{
+				glEnableVertexAttribArray(renderer->attribPixelOffsetPos);
+			}
+			if(0<=renderer->attribViewOffsetPos)
+			{
+				glEnableVertexAttribArray(renderer->attribViewOffsetPos);
+			}
+			if(0<=renderer->attribPointSizePos)
+			{
+				glEnableVertexAttribArray(renderer->attribPointSizePos);
+			}
+			renderer->fixedArrayActuallyEnabled=YSTRUE;
 		}
 
+		if(0==renderer->inUse)
+		{
+			++ysGLSLNum3DRendererInUse;
+		}
 		renderer->inUse=1;
 	}
 
@@ -907,7 +1072,60 @@ GLuint YsGLSLUse3DRenderer(struct YsGLSL3DRenderer *renderer)
 
 void YsGLSLEndUse3DRenderer(struct YsGLSL3DRenderer *renderer)
 {
-	if(NULL!=renderer)
+	if(NULL!=renderer && YSTRUE==renderer->lazyArray)
+	{
+		// Nothing else depended on the arrays while this renderer was in
+		// use.  Disable what was enabled.  All arrays of this renderer are
+		// disabled after this, as they always were.
+		if(YSTRUE==renderer->fixedArrayActuallyEnabled)
+		{
+			if(0<=renderer->attribVertexPos)
+			{
+				glDisableVertexAttribArray(renderer->attribVertexPos);
+			}
+			if(0<=renderer->attribNormalPos)
+			{
+				glDisableVertexAttribArray(renderer->attribNormalPos);
+			}
+			if(0<=renderer->attribPixelOffsetPos)
+			{
+				glDisableVertexAttribArray(renderer->attribPixelOffsetPos);
+			}
+			if(0<=renderer->attribViewOffsetPos)
+			{
+				glDisableVertexAttribArray(renderer->attribViewOffsetPos);
+			}
+			if(0<=renderer->attribPointSizePos)
+			{
+				glDisableVertexAttribArray(renderer->attribPointSizePos);
+			}
+		}
+		if(0<=renderer->attribColorPos && YSTRUE==renderer->colorArrayActuallyEnabled)
+		{
+			glDisableVertexAttribArray(renderer->attribColorPos);
+		}
+		if(0<=renderer->attribTexCoordPos && YSTRUE==renderer->texCoordArrayActuallyEnabled)
+		{
+			glDisableVertexAttribArray(renderer->attribTexCoordPos);
+		}
+		renderer->colorArrayEnabled=YSFALSE;
+		renderer->texCoordArrayEnabled=YSFALSE;
+		renderer->lazyArray=YSFALSE;
+		renderer->fixedArrayActuallyEnabled=YSFALSE;
+		renderer->colorArrayActuallyEnabled=YSFALSE;
+		renderer->texCoordArrayActuallyEnabled=YSFALSE;
+		if(ysGLSLLazyArray3DRenderer==renderer)
+		{
+			ysGLSLLazyArray3DRenderer=NULL;
+		}
+
+		if(0!=renderer->inUse && 0<ysGLSLNum3DRendererInUse)
+		{
+			--ysGLSLNum3DRendererInUse;
+		}
+		renderer->inUse=0;
+	}
+	else if(NULL!=renderer)
 	{
 		if(0<=renderer->attribVertexPos)
 		{
@@ -939,7 +1157,14 @@ void YsGLSLEndUse3DRenderer(struct YsGLSL3DRenderer *renderer)
 		{
 			glDisableVertexAttribArray(renderer->attribPointSizePos);
 		}
+		renderer->fixedArrayActuallyEnabled=YSFALSE;
+		renderer->colorArrayActuallyEnabled=YSFALSE;
+		renderer->texCoordArrayActuallyEnabled=YSFALSE;
 
+		if(0!=renderer->inUse && 0<ysGLSLNum3DRendererInUse)
+		{
+			--ysGLSLNum3DRendererInUse;
+		}
 		renderer->inUse=0;
 	}
 }
