@@ -141,8 +141,13 @@ public:
 	using YsGLBufferTemplate <T,2>::AddAndCleanUpIncoming;
 	inline void Add(T x,T y)
 	{
-		this->dat.Add(x);
-		this->dat.Add(y);
+		// Grow once and write the components, instead of appending the
+		// components one by one.  This is called for every vertex.
+		const auto n=this->dat.GetN();
+		this->dat.Resize(n+2);
+		T *ptr=this->dat.GetEditableArray()+n;
+		ptr[0]=x;
+		ptr[1]=y;
 	}
 };
 
@@ -157,9 +162,13 @@ public:
 	using YsGLBufferTemplate <T,3>::AddAndCleanUpIncoming;
 	inline void Add(T x,T y,T z)
 	{
-		this->dat.Add(x);
-		this->dat.Add(y);
-		this->dat.Add(z);
+		// See YsGLBufferTemplate2D::Add.
+		const auto n=this->dat.GetN();
+		this->dat.Resize(n+3);
+		T *ptr=this->dat.GetEditableArray()+n;
+		ptr[0]=x;
+		ptr[1]=y;
+		ptr[2]=z;
 	}
 };
 
@@ -174,10 +183,14 @@ public:
 	using YsGLBufferTemplate <T,4>::AddAndCleanUpIncoming;
 	inline void Add(T x,T y,T z,T w)
 	{
-		this->dat.Add(x);
-		this->dat.Add(y);
-		this->dat.Add(z);
-		this->dat.Add(w);
+		// See YsGLBufferTemplate2D::Add.
+		const auto n=this->dat.GetN();
+		this->dat.Resize(n+4);
+		T *ptr=this->dat.GetEditableArray()+n;
+		ptr[0]=x;
+		ptr[1]=y;
+		ptr[2]=z;
+		ptr[3]=w;
 	}
 };
 
