@@ -285,8 +285,11 @@ int YsGLSLCompileAndLinkVertexAndFragmentShader(
 	    NULL); // Last NULL assumes each line is C string
 	 */
 
-	glShaderSource(vertexShaderId,1,&vertexShaderProgramLinear,NULL);
-	glShaderSource(fragmentShaderId,1,&fragmentShaderProgramLinear,NULL);
+	/* The third parameter is (const GLchar **) or (const GLchar * const *) depending on the header.
+	   Neither accepts (char **) implicitly, which is an error in GCC 14 and newer.
+	   (void *) converts to either of them. */
+	glShaderSource(vertexShaderId,1,(void *)&vertexShaderProgramLinear,NULL);
+	glShaderSource(fragmentShaderId,1,(void *)&fragmentShaderProgramLinear,NULL);
 
 
 
