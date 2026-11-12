@@ -468,6 +468,7 @@ GLuint YsGLSLUseBitmapFontRenderer(struct YsGLSLBitmapFontRenderer *renderer)
 		glEnableVertexAttribArray(renderer->attribPixelOffsetPos);
 		glEnableVertexAttribArray(renderer->attribTexCoordPos);
 		glEnableVertexAttribArray(renderer->attribTexCoordRangePos);
+		YsGLSLNon3DRendererIsActivated(renderer->inUse);
 		renderer->inUse=1;
 	}
 	return prevProgramId;
@@ -481,6 +482,7 @@ void YsGLSLEndUseBitmapFontRenderer(struct YsGLSLBitmapFontRenderer *renderer)
 		glDisableVertexAttribArray(renderer->attribPixelOffsetPos);
 		glDisableVertexAttribArray(renderer->attribTexCoordPos);
 		glDisableVertexAttribArray(renderer->attribTexCoordRangePos);
+		YsGLSLNon3DRendererIsDeactivated(renderer->inUse);
 		renderer->inUse=0;
 	}
 }

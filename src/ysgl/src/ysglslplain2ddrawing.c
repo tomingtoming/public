@@ -257,6 +257,7 @@ GLuint YsGLSLUsePlain2DRenderer(struct YsGLSLPlain2DRenderer *renderer)
 	glEnableVertexAttribArray(renderer->colorInPos);
 	renderer->colorArrayEnabled=1;
 
+	YsGLSLNon3DRendererIsActivated(renderer->inUse);
 	renderer->inUse=1;
 
 	return prevProgramId;
@@ -271,6 +272,7 @@ void YsGLSLEndUsePlain2DRenderer(struct YsGLSLPlain2DRenderer *renderer)
 	}
 
 	renderer->colorArrayEnabled=0;
+	YsGLSLNon3DRendererIsDeactivated(renderer->inUse);
 	renderer->inUse=0;
 }
 

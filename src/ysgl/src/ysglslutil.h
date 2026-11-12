@@ -91,6 +91,23 @@ int YsGLSLGetUniformLocation(int *errorCountPtr,const char callingFunc[],int pro
 */
 int YsGLSLGetAttribLocation(int *errorCountPtr,const char callingFunc[],int progIdent,const char attribName[]);
 
+/*! A 3D renderer (YsGLSL3DRenderer) may postpone enabling its vertex-attribute
+    arrays until it draws, as long as nothing else depends on the state of
+    the arrays.  This function enables the postponed arrays of the 3D
+    renderer that is in use, if any, so that the state of the arrays is what
+    it is supposed to be.  Call it before enabling, disabling, or depending
+    on vertex-attribute arrays outside of a 3D renderer.
+*/
+void YsGLSLMaterialize3DRendererVertexAttribArray(void);
+
+/*! A renderer other than a 3D renderer (plain 2D, bitmap, and bitmap-font
+    renderers) calls these functions when it is activated and deactivated,
+    with its inUse flag before the change.  A 3D renderer does not postpone
+    enabling its arrays while another renderer is in use.
+*/
+void YsGLSLNon3DRendererIsActivated(int wasInUse);
+void YsGLSLNon3DRendererIsDeactivated(int wasInUse);
+
 #ifdef __cplusplus
 }
 #endif
