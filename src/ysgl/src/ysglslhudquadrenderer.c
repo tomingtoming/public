@@ -217,6 +217,9 @@ void YsGLSLRenderHudQuad(struct YsGLSLHudQuadRenderer *renderer,const GLfloat co
 {
 	GLuint prevProgramId;
 
+	/* This function enables and disables vertex-attribute arrays. */
+	YsGLSLMaterialize3DRendererVertexAttribArray();
+
 	/* Winding matches the header comment: BL, BR, TR, TL, drawn as a fan. */
 	static const GLfloat texCoord[8]=
 	{
