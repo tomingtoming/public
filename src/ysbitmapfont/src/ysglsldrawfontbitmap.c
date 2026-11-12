@@ -333,8 +333,8 @@ struct YsGLSLBitmapFontRenderer *YsGLSLCreateBitmapFontRenderer(void)
 		renderer->numViews=0;
 #endif
 
-		glShaderSource(renderer->vertexShaderId,1,vtxShader,NULL); // Last NULL assumes each line is C string
-		glShaderSource(renderer->fragmentShaderId,1,fragShader,NULL); // Last NULL assumes each line is C string
+		glShaderSource(renderer->vertexShaderId,1,(void *)vtxShader,NULL); // Last NULL assumes each line is C string
+		glShaderSource(renderer->fragmentShaderId,1,(void *)fragShader,NULL); // Last NULL assumes each line is C string
 
 		free(vtxShader[0]);
 		free(fragShader[0]);
