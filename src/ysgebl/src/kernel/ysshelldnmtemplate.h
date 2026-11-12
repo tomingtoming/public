@@ -112,6 +112,23 @@ public:
 	private:
 		mutable YsArray <NodeState> stateArray;
 		mutable YsHashTable <YSSIZE_T> nodeKeyToStateArrayIndex;
+
+		// Direct look-up in front of nodeKeyToStateArrayIndex.
+		// The search key of a node is a small number that is unique within
+		// a DNM object (it counts up from one), and the state of a node is
+		// looked up several times per node for every drawing pass.
+		// keyToStateArrayIndexPlusOne[key] is the index to stateArray plus
+		// one, or zero if it is not known yet.  It only remembers what the
+		// hash table has, and is cleared whenever the hash table is copied,
+		// moved, or cleaned up.  Keys of MAX_DIRECT_KEY or greater always go
+		// to the hash table.
+		enum
+		{
+			MAX_DIRECT_KEY=4096
+		};
+		mutable YsArray <YSSIZE_T> keyToStateArrayIndexPlusOne;
+		inline YSBOOL FindDirect(YSSIZE_T &idx,YSHASHKEY key) const;
+		inline void RememberDirect(YSHASHKEY key,YSSIZE_T idx) const;
 	public:
 		DnmState();
 		DnmState(DnmState &&incoming);
@@ -469,6 +486,7 @@ YsShellDnmContainer <SHLCLASS,NODESTATE_EXTRA_INFO>::DnmState::DnmState(const Dn
 {
 	stateArray.CopyFrom(incoming.stateArray);
 	nodeKeyToStateArrayIndex=incoming.nodeKeyToStateArrayIndex;
+	keyToStateArrayIndexPlusOne.CleanUp();
 }
 
 template <class SHLCLASS,class NODESTATE_EXTRA_INFO>
@@ -476,6 +494,8 @@ YsShellDnmContainer <SHLCLASS,NODESTATE_EXTRA_INFO>::DnmState::DnmState(DnmState
 {
 	stateArray.MoveFrom(incoming.stateArray);
 	nodeKeyToStateArrayIndex.MoveFrom(incoming.nodeKeyToStateArrayIndex);
+	keyToStateArrayIndexPlusOne.CleanUp();
+	incoming.keyToStateArrayIndexPlusOne.CleanUp();
 }
 
 template <class SHLCLASS,class NODESTATE_EXTRA_INFO>
@@ -483,6 +503,7 @@ typename YsShellDnmContainer <SHLCLASS,NODESTATE_EXTRA_INFO>::DnmState &YsShellD
 {
 	stateArray.CopyFrom(incoming.stateArray);
 	nodeKeyToStateArrayIndex=incoming.nodeKeyToStateArrayIndex;
+	keyToStateArrayIndexPlusOne.CleanUp();
 	return *this;
 }
 
@@ -491,6 +512,8 @@ typename YsShellDnmContainer <SHLCLASS,NODESTATE_EXTRA_INFO>::DnmState &YsShellD
 {
 	stateArray.MoveFrom(incoming.stateArray);
 	nodeKeyToStateArrayIndex.MoveFrom(incoming.nodeKeyToStateArrayIndex);
+	keyToStateArrayIndexPlusOne.CleanUp();
+	incoming.keyToStateArrayIndexPlusOne.CleanUp();
 	return *this;
 }
 
@@ -499,6 +522,31 @@ void YsShellDnmContainer <SHLCLASS,NODESTATE_EXTRA_INFO>::DnmState::CleanUp(void
 {
 	stateArray.CleanUp();
 	nodeKeyToStateArrayIndex.CleanUp();
+	keyToStateArrayIndexPlusOne.CleanUp();
+}
+
+template <class SHLCLASS,class NODESTATE_EXTRA_INFO>
+inline YSBOOL YsShellDnmContainer<SHLCLASS,NODESTATE_EXTRA_INFO>::DnmState::FindDirect(YSSIZE_T &idx,YSHASHKEY key) const
+{
+	if((YSSIZE_T)key<keyToStateArrayIndexPlusOne.GetN() && 0!=keyToStateArrayIndexPlusOne[key])
+	{
+		idx=keyToStateArrayIndexPlusOne[key]-1;
+		return YSTRUE;
+	}
+	return YSFALSE;
+}
+
+template <class SHLCLASS,class NODESTATE_EXTRA_INFO>
+inline void YsShellDnmContainer<SHLCLASS,NODESTATE_EXTRA_INFO>::DnmState::RememberDirect(YSHASHKEY key,YSSIZE_T idx) const
+{
+	if(key<(YSHASHKEY)MAX_DIRECT_KEY)
+	{
+		while(keyToStateArrayIndexPlusOne.GetN()<=(YSSIZE_T)key)
+		{
+			keyToStateArrayIndexPlusOne.Add(0);
+		}
+		keyToStateArrayIndexPlusOne[key]=idx+1;
+	}
 }
 
 template <class SHLCLASS,class NODESTATE_EXTRA_INFO>
@@ -517,14 +565,19 @@ template <class SHLCLASS,class NODESTATE_EXTRA_INFO>
 inline YSSIZE_T YsShellDnmContainer<SHLCLASS,NODESTATE_EXTRA_INFO>::DnmState::GetStateIndex(const Node *node) const
 {
 	YSSIZE_T idx;
-	if(YSOK!=nodeKeyToStateArrayIndex.FindElement(idx,node->GetSearchKey()))
+	const YSHASHKEY key=node->GetSearchKey();
+	if(YSTRUE==FindDirect(idx,key))
+	{
+		return idx;
+	}
+	if(YSOK!=nodeKeyToStateArrayIndex.FindElement(idx,key))
 	{
 		idx=stateArray.GetN();
 		stateArray.Increment();
 		stateArray.Last().Initialize();
-		nodeKeyToStateArrayIndex.AddElement(node->GetSearchKey(),idx);
-		return idx;
+		nodeKeyToStateArrayIndex.AddElement(key,idx);
 	}
+	RememberDirect(key,idx);
 	return idx;
 }
 
@@ -532,7 +585,8 @@ template <class SHLCLASS,class NODESTATE_EXTRA_INFO>
 YSBOOL YsShellDnmContainer<SHLCLASS,NODESTATE_EXTRA_INFO>::DnmState::GetShow(const Node *node) const
 {
 	YSSIZE_T idx;
-	if(YSOK==nodeKeyToStateArrayIndex.FindElement(idx,node->GetSearchKey()))
+	if(YSTRUE==FindDirect(idx,node->GetSearchKey()) ||
+	   YSOK==nodeKeyToStateArrayIndex.FindElement(idx,node->GetSearchKey()))
 	{
 		return stateArray[idx].GetShow();
 	}
@@ -564,7 +618,8 @@ template <class SHLCLASS,class NODESTATE_EXTRA_INFO>
 const YsMatrix4x4 &YsShellDnmContainer <SHLCLASS,NODESTATE_EXTRA_INFO>::DnmState::GetTransformation(const Node *node) const
 {
 	YSSIZE_T idx;
-	if(YSOK==nodeKeyToStateArrayIndex.FindElement(idx,node->GetSearchKey()))
+	if(YSTRUE==FindDirect(idx,node->GetSearchKey()) ||
+	   YSOK==nodeKeyToStateArrayIndex.FindElement(idx,node->GetSearchKey()))
 	{
 		return stateArray[idx].tfmCache;
 	}
