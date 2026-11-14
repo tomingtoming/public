@@ -32,6 +32,28 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ysglbuffermanager_gl2.h>
 #include "ysshellextgl.h"
 
+// A buffer unit can be in use and still hold no vertex (a DNM node with no
+// light, no transparent polygon, ...).  Drawing it costs a program switch, two
+// model-view uploads and a draw call that draws nothing.
+static YSBOOL HasVertexToDraw(const YsGLBufferManager::Unit *unitPtr)
+{
+	if(nullptr!=unitPtr && YsGLBufferManager::Unit::EMPTY!=unitPtr->GetState())
+	{
+		auto bufPtr=unitPtr->GetActualBuffer();
+		if(nullptr!=bufPtr)
+		{
+			for(auto &buf : bufPtr->bufSet)
+			{
+				if(0<buf.nVtx)
+				{
+					return YSTRUE;
+				}
+			}
+		}
+	}
+	return YSFALSE;
+}
+
 
 
 void YsHasShellExtVboSet::Render(const YsMatrix4x4 &viewModelTfm,RenderingOption opt) const
@@ -66,7 +88,7 @@ void YsHasShellExtVboSet::Render(const YsMatrix4x4 &viewModelTfm,RenderingOption
 		if(NULL!=YsGLSLSharedVariColorShaded3DRenderer())
 		{
 			auto unitPtr=bufManager.GetBufferUnit(vboSet.solidShadedPosNomColHd);
-			if(nullptr!=unitPtr && YsGLBufferManager::Unit::EMPTY!=unitPtr->GetState())
+			if(YSTRUE==HasVertexToDraw(unitPtr))
 			{
 				YsGLSLRenderer renderer(YsGLSLSharedVariColorShaded3DRenderer());
 				renderer.GetModelView(push);
@@ -78,7 +100,7 @@ void YsHasShellExtVboSet::Render(const YsMatrix4x4 &viewModelTfm,RenderingOption
 		if(NULL!=YsGLSLSharedVariColor3DRenderer())
 		{
 			auto unitPtr=bufManager.GetBufferUnit(vboSet.solidUnshadedPosColHd);
-			if(nullptr!=unitPtr && YsGLBufferManager::Unit::EMPTY!=unitPtr->GetState())
+			if(YSTRUE==HasVertexToDraw(unitPtr))
 			{
 				YsGLSLRenderer renderer(YsGLSLSharedVariColor3DRenderer());
 				renderer.GetModelView(push);
@@ -93,7 +115,7 @@ void YsHasShellExtVboSet::Render(const YsMatrix4x4 &viewModelTfm,RenderingOption
 		if(NULL!=YsGLSLSharedVariColor3DRenderer())
 		{
 			auto unitPtr=bufManager.GetBufferUnit(vboSet.normalEdgePosHd);
-			if(nullptr!=unitPtr && YsGLBufferManager::Unit::EMPTY!=unitPtr->GetState())
+			if(YSTRUE==HasVertexToDraw(unitPtr))
 			{
 				YsGLSLRenderer renderer(YsGLSLSharedVariColor3DRenderer());
 				renderer.GetModelView(push);
@@ -109,7 +131,7 @@ void YsHasShellExtVboSet::Render(const YsMatrix4x4 &viewModelTfm,RenderingOption
 		if(NULL!=YsGLSLSharedVariColor3DRenderer())
 		{
 			auto unitPtr=bufManager.GetBufferUnit(vboSet.backFacePosColHd);
-			if(nullptr!=unitPtr && YsGLBufferManager::Unit::EMPTY!=unitPtr->GetState())
+			if(YSTRUE==HasVertexToDraw(unitPtr))
 			{
 				YsGLSLRenderer renderer(YsGLSLSharedVariColor3DRenderer());
 				renderer.GetModelView(push);
@@ -124,7 +146,7 @@ void YsHasShellExtVboSet::Render(const YsMatrix4x4 &viewModelTfm,RenderingOption
 		if(NULL!=YsGLSLSharedVariColorShaded3DRenderer())
 		{
 			auto unitPtr=bufManager.GetBufferUnit(vboSet.trspShadedPosNomColHd);
-			if(nullptr!=unitPtr && YsGLBufferManager::Unit::EMPTY!=unitPtr->GetState())
+			if(YSTRUE==HasVertexToDraw(unitPtr))
 			{
 				YsGLSLRenderer renderer(YsGLSLSharedVariColorShaded3DRenderer());
 				renderer.GetModelView(push);
@@ -136,7 +158,7 @@ void YsHasShellExtVboSet::Render(const YsMatrix4x4 &viewModelTfm,RenderingOption
 		if(NULL!=YsGLSLSharedVariColor3DRenderer())
 		{
 			auto unitPtr=bufManager.GetBufferUnit(vboSet.trspUnshadedPosColHd);
-			if(nullptr!=unitPtr && YsGLBufferManager::Unit::EMPTY!=unitPtr->GetState())
+			if(YSTRUE==HasVertexToDraw(unitPtr))
 			{
 				YsGLSLRenderer renderer(YsGLSLSharedVariColor3DRenderer());
 				renderer.GetModelView(push);
@@ -151,7 +173,7 @@ void YsHasShellExtVboSet::Render(const YsMatrix4x4 &viewModelTfm,RenderingOption
 		if(NULL!=YsGLSLSharedFlashByPointSprite3DRenderer())
 		{
 			auto unitPtr=bufManager.GetBufferUnit(vboSet.lightPosColPointSizeHd);
-			if(nullptr!=unitPtr && YsGLBufferManager::Unit::EMPTY!=unitPtr->GetState())
+			if(YSTRUE==HasVertexToDraw(unitPtr))
 			{
 				int viewport[4];
 				glGetIntegerv(GL_VIEWPORT,viewport);
@@ -199,7 +221,7 @@ void YsHasShellExtVboSet::Render(const YsMatrix4x4 &viewModelTfm,RenderingOption
 			for(auto hd : vboSet.plainPlgPosHd)
 			{
 				auto unitPtr=bufManager.GetBufferUnit(hd);
-				if(nullptr!=unitPtr && YsGLBufferManager::Unit::EMPTY!=unitPtr->GetState())
+				if(YSTRUE==HasVertexToDraw(unitPtr))
 				{
 					YsGLSLRenderer renderer(YsGLSLSharedFlat3DRenderer());
 					renderer.SetUniformColor(0.0,0.0,0.0,1.0);
